@@ -60,6 +60,11 @@ export default function Home() {
         elementCopy[id] = createElement(id, x1, y1, x2, y2, type);
         break;
 
+      case Tools.pencil:
+        const existingPoints = elementCopy[id].points || [];
+        elementCopy[id].points = [...existingPoints, { x: x2, y: y2 }];
+        break;
+
       default:
         throw new Error(`Unknown type: ${type}`);
     }
@@ -70,7 +75,7 @@ export default function Home() {
   const handleMouseDown = (event: MouseEvent<HTMLCanvasElement>) => {
     const { clientX, clientY } = event;
 
-    if (tool == Tools.rectangle || tool == Tools.line) {
+    if (tool == Tools.rectangle || tool == Tools.line || tool == Tools.pencil) {
       const id = elements.length;
       const newElement = createElement(
         id,
@@ -104,13 +109,12 @@ export default function Home() {
       const { id, type } = elements[index];
 
       if (action === "drawing" && adjustmentRequired(type)) {
-        console.log("here insede");
         const { x1, y1, x2, y2 } = adjustedCoordinates(elements[index]);
-        console.log(x1, y1, x2, y2);
         updateElement(id, x1, y1, x2, y2, type);
-        setAction("none");
       }
     }
+
+    setAction("none");
   };
 
   return (
