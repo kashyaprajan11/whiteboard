@@ -19,7 +19,7 @@ export default function ActionBar({ tool, setTool }: ActionBarProps) {
         <div
           key={t}
           className={classNames(
-            "cursor-pointer relative rounded-xl border border-solid border-transparent p-[10px] bg-[var(--primary-bg-color)] transition-all duration-300 hover:bg-[var(--secondary-bg-color)]",
+            "cursor-pointer relative rounded-xl border border-solid border-transparent p-[10px] bg-[var(--primary-bg-color)] transition-colors duration-300 hover:bg-[var(--secondary-bg-color)]",
             tool == t ? "bg-[var(--secondary-bg-color)]" : ""
           )}
         >
