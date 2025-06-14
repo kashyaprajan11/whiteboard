@@ -33,6 +33,9 @@ export function createElement(
         roughElement: defaultRoughElement,
       };
 
+    case Tools.text:
+      return { id, x1, y1, x2, y2, type, text: "" };
+
     default:
       throw new Error(`Unknown type: ${type}`);
   }

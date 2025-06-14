@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState, MouseEvent } from "react";
+import {
+  useLayoutEffect,
+  useEffect,
+  useState,
+  useRef,
+  MouseEvent,
+} from "react";
 import rough from "roughjs";
 
 import { createElement } from "@/utilities/create-element";
@@ -21,16 +27,18 @@ export default function Home() {
     undefined
   );
   const [canvasWidth, setCanvasWidth] = useState<number | undefined>(undefined);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [selectedElement, setSelectedElement] = useState<ElementType | null>(
     null
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setCanvasHeight(window.innerHeight);
     setCanvasWidth(window.innerWidth);
   }, []);
 
   console.log(elements);
+  console.log(selectedElement);
 
   useLayoutEffect(() => {
     const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -40,9 +48,27 @@ export default function Home() {
     context.clearRect(0, 0, canvas.width, canvas.height);
 
     elements.forEach((element) => {
+      if (
+        action === "writing" &&
+        selectedElement &&
+        selectedElement.id === element.id
+      ) {
+        return;
+      }
       drawElement(roughCanvas, context, element);
     });
-  });
+    context.restore();
+  }, [elements, action, selectedElement]);
+
+  useEffect(() => {
+    const textArea = textAreaRef.current;
+    if (action === "writing" && textArea && selectedElement) {
+      setTimeout(() => {
+        textArea.focus();
+        textArea.value = selectedElement.text || "";
+      }, 0);
+    }
+  }, [action, selectedElement]);
 
   const updateElement = (
     id: number,
@@ -65,6 +91,25 @@ export default function Home() {
         elementCopy[id].points = [...existingPoints, { x: x2, y: y2 }];
         break;
 
+      case Tools.text:
+        const canvas = document.getElementById("canvas");
+        if (!(canvas instanceof HTMLCanvasElement)) {
+          throw new Error("Canvas element not found");
+        }
+        const context = canvas.getContext("2d");
+        if (!context) {
+          throw new Error("Could not get 2D context from canvas");
+        }
+        if (!options) {
+          throw new Error("No text options provided for text tool");
+        }
+        const textWidth = context.measureText(options.text).width;
+        const textHeight = 24;
+        elementCopy[id] = {
+          ...createElement(id, x1, y1, x1 + textWidth, y1 + textHeight, type),
+          text: options.text,
+        };
+        break;
       default:
         throw new Error(`Unknown type: ${type}`);
     }
@@ -72,10 +117,33 @@ export default function Home() {
     setElements(elementCopy, true);
   };
 
+  const handleBlur = (event: React.FocusEvent<HTMLTextAreaElement>) => {
+    console.log("handleblur ran");
+    if (selectedElement) {
+      const { id, x1, y1, type } = selectedElement;
+
+      const x2 = selectedElement.x2 || x1;
+      const y2 = selectedElement.y2 || y1;
+
+      setAction("none");
+      setSelectedElement(null);
+      updateElement(id, x1, y1, x2, y2, type, { text: event.target.value });
+    } else {
+      console.error("No element selected when handleBlur was called");
+    }
+  };
+
   const handleMouseDown = (event: MouseEvent<HTMLCanvasElement>) => {
     const { clientX, clientY } = event;
 
-    if (tool == Tools.rectangle || tool == Tools.line || tool == Tools.pencil) {
+    if (action === "writing") return;
+
+    if (
+      tool == Tools.rectangle ||
+      tool == Tools.line ||
+      tool == Tools.pencil ||
+      tool == Tools.text
+    ) {
       const id = elements.length;
       const newElement = createElement(
         id,
@@ -87,7 +155,7 @@ export default function Home() {
       );
       setElements((prev) => [...prev, newElement]);
       setSelectedElement(newElement);
-      setAction("drawing");
+      setAction(tool == Tools.text ? "writing" : "drawing");
     }
   };
 
@@ -115,11 +183,24 @@ export default function Home() {
     }
 
     setAction("none");
+    setSelectedElement(null);
   };
 
   return (
     <div>
       <ActionBar tool={tool} setTool={setTool} />
+      {action === "writing" && (
+        <textarea
+          ref={textAreaRef}
+          className="textArea"
+          onBlur={handleBlur}
+          style={{
+            font: "24px sans-serif",
+            top: selectedElement ? selectedElement.y1 : 0,
+            left: selectedElement ? selectedElement.x1 : 0,
+          }}
+        />
+      )}
       <canvas
         id="canvas"
         height={canvasHeight}

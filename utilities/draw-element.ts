@@ -6,6 +6,7 @@ export function drawElement(
   context: CanvasRenderingContext2D,
   element: ElementType
 ) {
+  console.log("type", element.type);
   switch (element.type) {
     case Tools.line:
     case Tools.rectangle:
@@ -28,6 +29,12 @@ export function drawElement(
       });
       const stroke = getSvgPathFromStroke(formattedPoints);
       context.fill(new Path2D(stroke));
+      break;
+    case Tools.text:
+      context.textBaseline = "top";
+      context.font = "24px manrope";
+      const text = element.text || "";
+      context.fillText(text, element.x1, element.y1); // Render text on canvas
       break;
     default:
       throw new Error(`Unknown type ${element.type}`);
