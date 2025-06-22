@@ -11,6 +11,18 @@ export type ElementType = {
   text?: any;
 };
 
+export type SelectedElementType = ElementType & {
+  xOffsets?: number[];
+  yOffsets?: number[];
+  offsetX?: number;
+  offsetY?: number;
+};
+
+export interface ExtendedElementType extends ElementType {
+  xOffsets?: number[];
+  yOffsets?: number[];
+}
+
 export const Tools = {
   pan: "pan",
   selection: "selection",
@@ -29,3 +41,5 @@ export type ActionTypes =
   | "panning"
   | "resizing"
   | "none";
+
+export type PointsType = { x: number; y: number };

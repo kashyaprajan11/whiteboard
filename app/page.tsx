@@ -15,7 +15,17 @@ import { useHistory } from "@/hooks/useHistory";
 import { adjustmentRequired } from "@/utilities/adjustment-required";
 import { adjustedCoordinates } from "@/utilities/adjust-element-coordinates";
 import ActionBar from "@/components/action-bar";
-import { Tools, ToolsType, ActionTypes, ElementType } from "@/types";
+import {
+  Tools,
+  ToolsType,
+  ActionTypes,
+  ElementType,
+  SelectedElementType,
+  ExtendedElementType,
+} from "@/types";
+import { getElementAtPosition } from "@/utilities/get-elements-at-position";
+import { cursorForPosition } from "@/utilities/cursor-for-position";
+import { resizedCoordinates } from "@/utilities/resized-coordinates";
 
 export default function Home() {
   const initialTool: ToolsType = Tools.selection;
@@ -118,7 +128,6 @@ export default function Home() {
   };
 
   const handleBlur = (event: React.FocusEvent<HTMLTextAreaElement>) => {
-    console.log("handleblur ran");
     if (selectedElement) {
       const { id, x1, y1, type } = selectedElement;
 
@@ -137,6 +146,32 @@ export default function Home() {
     const { clientX, clientY } = event;
 
     if (action === "writing") return;
+
+    if (tool == Tools.selection) {
+      const element = getElementAtPosition(clientX, clientY, elements);
+
+      if (element) {
+        let selectedElement: SelectedElementType = { ...element };
+        if (element.type === "pencil" && element.points) {
+          const xOffsets = element.points.map((point) => clientX - point.x);
+          const yOffsets = element.points.map((point) => clientY - point.y);
+          selectedElement = { ...selectedElement, xOffsets, yOffsets };
+        } else {
+          const offsetX = clientX - selectedElement.x1;
+          const offsetY = clientY - selectedElement.y1;
+          selectedElement = { ...selectedElement, offsetX, offsetY };
+        }
+
+        setSelectedElement(selectedElement);
+        // setElements((prevState) => prevState);
+
+        if (element.position === "inside") {
+          setAction("moving");
+        } else {
+          setAction("resizing");
+        }
+      }
+    }
 
     if (
       tool == Tools.rectangle ||
@@ -162,10 +197,74 @@ export default function Home() {
   const handleMouseMove = (event: MouseEvent<HTMLCanvasElement>) => {
     const { clientX, clientY } = event;
 
+    if (tool === Tools.selection) {
+      const element = getElementAtPosition(clientX, clientY, elements);
+
+      if (element && element.position) {
+        (event.target as HTMLElement).style.cursor = cursorForPosition(
+          element.position
+        );
+      } else {
+        (event.target as HTMLElement).style.cursor = "default";
+      }
+    }
+
     if (action === "drawing") {
       const index = elements.length - 1;
       const { x1, y1 } = elements[index];
       updateElement(index, x1, y1, clientX, clientY, tool);
+    } else if (action === "moving" && selectedElement) {
+      if (
+        selectedElement.type === "pencil" &&
+        "points" in selectedElement &&
+        "xOffsets" in selectedElement &&
+        "yOffsets" in selectedElement
+      ) {
+        const extendedElement = selectedElement as ExtendedElementType;
+        const newPoints = extendedElement.points!.map((_, index) => ({
+          x: clientX - extendedElement.xOffsets![index],
+          y: clientY - extendedElement.yOffsets![index],
+        }));
+        const elementsCopy = [...elements];
+        elementsCopy[extendedElement.id] = {
+          ...elementsCopy[extendedElement.id],
+          points: newPoints,
+        };
+        setElements(elementsCopy, true);
+      } else {
+        const { id, x1, x2, y1, y2, type, offsetX, offsetY } =
+          selectedElement as SelectedElementType;
+        const safeOffsetX = offsetX ?? 0;
+        const safeOffsetY = offsetY ?? 0;
+        const newX1 = clientX - safeOffsetX;
+        const newY1 = clientY - safeOffsetY;
+        // 🫐 Calculate the new position for x2 and y2 based on the original size
+        const newX2 = newX1 + (x2 - x1);
+        const newY2 = newY1 + (y2 - y1);
+        const options =
+          type === "text" && selectedElement.text
+            ? { text: selectedElement.text }
+            : undefined;
+        updateElement(id, newX1, newY1, newX2, newY2, type, options);
+      }
+    } else if (
+      action === "resizing" &&
+      selectedElement &&
+      selectedElement.position
+    ) {
+      const { id, type, position, ...coordinates } =
+        selectedElement as ExtendedElementType;
+
+      if (typeof position === "string") {
+        const { x1, y1, x2, y2 } = resizedCoordinates(
+          clientX,
+          clientY,
+          position,
+          coordinates
+        );
+
+        updateElement(id, x1, y1, x2, y2, type);
+      }
     }
   };
 
